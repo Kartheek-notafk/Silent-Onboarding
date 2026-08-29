@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Knowledge Ops Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #151b26;
+    --surface-hover: #1a2230;
+    --border: #232c3d;
+    --text: #e8ecf3;
+    --text-dim: #8b96ab;
+    --accent: #6ee7b7;
+    --accent-soft: rgba(110, 231, 183, 0.12);
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(110, 231, 183, 0.07), transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(110, 231, 183, 0.05), transparent 40%);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 920px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .title-block .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .title-block h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 999px;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.5);
+    animation: pulse 2s infinite;
+  }
+
+  .dot.error { background: #f87171; animation: none; }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.45); }
+    70%  { box-shadow: 0 0 0 8px rgba(110, 231, 183, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(110, 231, 183, 0); }
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .card:hover {
+    border-color: rgba(110, 231, 183, 0.35);
+    transform: translateY(-2px);
+  }
+
+  .card .label {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-bottom: 14px;
+  }
+
+  .card .value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .card .value.skeleton {
+    color: transparent;
+    background: linear-gradient(90deg, var(--border) 25%, var(--surface-hover) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 8px;
+    display: inline-block;
+    width: 70px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .card .unit {
+    font-size: 15px;
+    color: var(--text-dim);
+    font-weight: 500;
+    margin-left: 6px;
+  }
+
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 22px;
+    font-size: 12px;
+    color: var(--text-dim);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  footer button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  footer button:hover {
+    color: var(--accent);
+    border-color: rgba(110, 231, 183, 0.35);
+  }
+
+  .error-banner {
+    display: none;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    color: #fca5a5;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  code {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="title-block">
+      <div class="eyebrow">Onboarding Copilot</div>
+      <h1>Knowledge Ops Dashboard</h1>
+    </div>
+    <div class="status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Connecting…</span>
+    </div>
+  </header>
+
+  <div class="error-banner" id="errorBanner">
+    Couldn't reach the API. Showing last known values. Check the endpoint URL and CORS settings.
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Total Questions Asked</div>
+      <div class="value skeleton" id="totalQuestions">0</div>
+    </div>
+    <div class="card">
+      <div class="label">Docs Updated</div>
+      <div class="value skeleton" id="docsUpdated">0</div>
+    </div>
+    <div class="card">
+      <div class="label">Hours Saved</div>
+      <div class="value skeleton" id="hoursSaved">0<span class="unit">hrs</span></div>
+    </div>
+  </div>
+
+  <footer>
+    <span id="lastUpdated">Last updated: —</span>
+    <button id="refreshBtn">Refresh now</button>
+  </footer>
+</div>
+
+<script>
+  // Point this at Member 2's FastAPI endpoint.
+  // Expected JSON response shape:
+  // { "total_questions": 128, "docs_updated": 14, "hours_saved": 37 }
+  const API_URL = "http://localhost:8000/api/stats";
+  const REFRESH_INTERVAL_MS = 30000;
+
+  const els = {
+    total: document.getElementById('totalQuestions'),
+    docs: document.getElementById('docsUpdated'),
+    hours: document.getElementById('hoursSaved'),
+    dot: document.getElementById('statusDot'),
+    statusText: document.getElementById('statusText'),
+    lastUpdated: document.getElementById('lastUpdated'),
+    errorBanner: document.getElementById('errorBanner'),
+    refreshBtn: document.getElementById('refreshBtn'),
+  };
+
+  function animateValue(el, target, suffixEl) {
+    const duration = 700;
+    const start = performance.now();
+    const from = 0;
+    function tick(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(from + (target - from) * eased);
+      el.childNodes[0].nodeValue = current.toLocaleString();
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    el.classList.remove('skeleton');
+    if (!el.childNodes.length || el.childNodes[0].nodeType !== Node.TEXT_NODE) {
+      el.insertBefore(document.createTextNode('0'), el.firstChild);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  async function fetchStats() {
+    try {
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error("Bad response: " + res.status);
+      const data = await res.json();
+
+      animateValue(els.total, data.total_questions ?? 0);
+      animateValue(els.docs, data.docs_updated ?? 0);
+      animateValue(els.hours, data.hours_saved ?? 0);
+
+      els.dot.classList.remove('error');
+      els.statusText.textContent = 'Live';
+      els.errorBanner.style.display = 'none';
+      els.lastUpdated.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+    } catch (err) {
+      els.dot.classList.add('error');
+      els.statusText.textContent = 'Offline';
+      els.errorBanner.style.display = 'block';
+      console.error('Failed to fetch stats:', err);
+    }
+  }
+
+  els.refreshBtn.addEventListener('click', fetchStats);
+  fetchStats();
+  setInterval(fetchStats, REFRESH_INTERVAL_MS);
+</script>
+
+</body>
+</html>
