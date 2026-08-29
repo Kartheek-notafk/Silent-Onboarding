@@ -1,0 +1,38 @@
+{
+ "existing_docs": [
+ "HR Policy: All PTO and vacation requests must be submitted at least two weeks in advance through the company Workday portal.",
+ "DB Connection: To connect to the staging database, use the hostname 'db.staging.internal' on port 5432. Credentials can be retrieved from AWS Secrets Manager under the key 'staging-db-readonly'."
+ ],
+ "chat_logs": [
+ {
+ "user": "alice_dev",
+ "message": "Hey everyone, how was your weekend?",
+ "type": "casual"
+ },
+ {
+ "user": "bob_newhire",
+ "message": "How do I connect to the staging database?",
+ "type": "question_answered_in_docs"
+ },
+ {
+ "user": "charlie_eng",
+ "message": "I'm grabbing coffee from the kitchen if anyone wants some.",
+ "type": "casual"
+ },
+ {
+ "user": "diana_qa",
+ "message": "What's the policy on requesting time off? I want to take a long weekend next month.",
+ "type": "question_answered_in_docs"
+ },
+ {
+ "user": "bob_newhire",
+ "message": "Does anyone know the IP address for the new Redis cache?",
+ "type": "question_missing_from_docs"
+ },
+ {
+ "user": "alice_dev",
+ "message": "How do we trigger a manual deployment of the frontend to the production environment?",
+ "type": "question_missing_from_docs"
+ }
+ ]
+}
