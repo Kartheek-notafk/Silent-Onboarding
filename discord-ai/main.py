@@ -2,6 +2,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, BackgroundTasks
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
@@ -43,7 +44,13 @@ async def process_unprocessed_messages():
                     
                     if draft_content:
                         # Save relevant draft into database
-                        new_draft = Draft(content=draft_content, status="Pending")
+                        new_draft = Draft(
+                            content=draft_content["content"],
+                            priority=draft_content.get("priority", "Medium"),
+                            target_section=draft_content.get("target_section", "General"),
+                            proposed_change=draft_content.get("proposed_change", draft_content["content"]),
+                            status="Pending"
+                        )
                         db.add(new_draft)
                         db.commit()
                         db.refresh(new_draft)
@@ -52,7 +59,13 @@ async def process_unprocessed_messages():
                         
                         # Send draft to Discord approval channel
                         if bot.bot.is_ready():
-                            await bot.post_draft_for_approval(new_draft.id, new_draft.content)
+                            await bot.post_draft_for_approval(
+                                draft_id=new_draft.id,
+                                content=new_draft.content,
+                                priority=new_draft.priority,
+                                target_section=new_draft.target_section,
+                                proposed_change=new_draft.proposed_change
+                            )
                     else:
                         print(f"[FastAPI Background Task] Processed {len(unprocessed)} messages (No documentation-relevant changes detected).")
             finally:
@@ -127,14 +140,46 @@ async def trigger_ai_process(background_tasks: BackgroundTasks, db: Session = De
     db.commit()
     
     if draft_content:
-        new_draft = Draft(content=draft_content, status="Pending")
+        new_draft = Draft(
+            content=draft_content["content"],
+            priority=draft_content.get("priority", "Medium"),
+            target_section=draft_content.get("target_section", "General"),
+            proposed_change=draft_content.get("proposed_change", draft_content["content"]),
+            status="Pending"
+        )
         db.add(new_draft)
         db.commit()
         db.refresh(new_draft)
         
         if bot.bot.is_ready():
-            await bot.post_draft_for_approval(new_draft.id, new_draft.content)
+            await bot.post_draft_for_approval(
+                draft_id=new_draft.id,
+                content=new_draft.content,
+                priority=new_draft.priority,
+                target_section=new_draft.target_section,
+                proposed_change=new_draft.proposed_change
+            )
             
         return {"status": "success", "draft_created": True, "draft_id": new_draft.id}
     
     return {"status": "success", "draft_created": False, "reason": "No documentation-relevant topics detected"}
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def get_dashboard():
+    dashboard_path = os.path.join(os.path.dirname(__file__), "..", "dashboard.html")
+    try:
+        with open(dashboard_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "<h1>Dashboard file not found. Ensure dashboard.html is in the parent directory.</h1>"
+
+@app.get("/api/stats")
+def get_stats(db: Session = Depends(get_db)):
+    total_questions = db.query(Message).count()
+    docs_updated = db.query(Draft).filter(Draft.status == "Approved").count()
+    hours_saved = docs_updated * 2
+    return {
+        "total_questions": total_questions,
+        "docs_updated": docs_updated,
+        "hours_saved": hours_saved
+    }

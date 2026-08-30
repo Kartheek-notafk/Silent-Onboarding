@@ -12,7 +12,7 @@ import logging
 import requests
 from typing import List, Dict, Any, Optional
 
-from notion_config import (
+from .notion_config import (
     clean_notion_page_id,
     get_notion_api_key,
     get_notion_page_id,
