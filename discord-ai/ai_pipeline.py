@@ -1,7 +1,16 @@
+import os
 import google.generativeai as genai
 import chromadb
 import uuid
 import json
+from dotenv import load_dotenv
+from groq import Groq
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Initialize Groq client
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # Initialize ChromaDB persistent client and the target collection
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
@@ -9,10 +18,9 @@ wiki_collection = chroma_client.get_or_create_collection(name="wiki_docs")
 
 def detect_question(message: str) -> bool:
  """
- Uses a Gemini LLM prompt to return True ONLY if the message is a 
+ Uses a Groq LLM prompt to return True ONLY if the message is a 
  genuine technical/onboarding question.
  """
- model = genai.GenerativeModel('gemini-3.5-flash')
  
  prompt = (
  "You are an AI assistant monitoring a developer chat. "
@@ -24,11 +32,15 @@ def detect_question(message: str) -> bool:
  f"Message: \"{message}\""
  )
  
- response = model.generate_content(prompt)
+ response = groq_client.chat.completions.create(
+     model="groq/compound-mini",
+     messages=[{"role": "user", "content": prompt}],
+     temperature=0
+ )
  
  # Strip whitespace and normalize to lowercase to safely evaluate the boolean
- result = response.text.strip().lower()
- return result == 'true'
+ result = response.choices[0].message.content.strip().lower()
+ return 'true' in result
 
 def get_embedding(text: str) -> list[float]:
  """
@@ -89,16 +101,15 @@ def detect_gap(question: str) -> dict:
  {docs_context}
  """
  
- model = genai.GenerativeModel("gemini-3.5-flash")
- 
- # Using response_mime_type to guarantee valid JSON output
- response = model.generate_content(
-  prompt,
-  generation_config=genai.GenerationConfig(response_mime_type="application/json")
+ response = groq_client.chat.completions.create(
+     model="groq/compound-mini",
+     messages=[{"role": "user", "content": prompt}],
+     response_format={"type": "json_object"},
+     temperature=0
  )
  
  try:
-  return json.loads(response.text)
+  return json.loads(response.choices[0].message.content)
  except json.JSONDecodeError:
   return {"has_gap": True, "reason": "Failed to parse auditor response"}
 
@@ -118,7 +129,41 @@ def generate_draft(question: str, human_answers: list[str]) -> str:
  {formatted_answers}
  """
  
- model = genai.GenerativeModel("gemini-1.5-flash")
- response = model.generate_content(prompt)
+ response = groq_client.chat.completions.create(
+     model="groq/compound-mini",
+     messages=[{"role": "user", "content": prompt}]
+ )
  
- return response.text
+ return response.choices[0].message.content
+
+
+def process_message_batch(messages: list[dict]) -> str | None:
+    """
+    Takes a batch of messages, finds unresolved questions, and generates a combined documentation draft.
+    Returns None if no gaps are found.
+    """
+    gaps_found = []
+    
+    for msg in messages:
+        content = msg.get("content", "")
+        if detect_question(content):
+            audit = detect_gap(content)
+            if audit.get("has_gap"):
+                gaps_found.append(content)
+                
+    if not gaps_found:
+        return None
+        
+    # Generate a draft for the gaps using the human answers context if needed
+    # For now, we ask the AI to draft a doc covering these missing questions
+    prompt = "The following questions were asked by new hires, but are missing from our documentation:\n"
+    for q in gaps_found:
+        prompt += f"- {q}\n"
+    prompt += "\nPlease write a professional Markdown documentation update that addresses these topics."
+    
+    response = groq_client.chat.completions.create(
+        model="groq/compound-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()
+

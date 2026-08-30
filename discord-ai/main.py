@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from database import SessionLocal, get_db
 from models import Message, Draft, init_db
-from ai import analyze_messages_and_generate_draft
+from ai_pipeline import process_message_batch
 import bot
 
 load_dotenv()
@@ -21,6 +21,7 @@ async def process_unprocessed_messages():
     classifies & filters documentation-relevant topics, generates a targeted proposal,
     saves the draft, and sends to Discord approval channel.
     """
+    await bot.bot.wait_until_ready()
     while True:
         try:
             db = SessionLocal()
@@ -32,8 +33,8 @@ async def process_unprocessed_messages():
                         for m in unprocessed
                     ]
                     
-                    # Generate AI draft with message filtering and FAQ classification
-                    draft_content = analyze_messages_and_generate_draft(message_dicts)
+                    # Generate AI draft using the ChromaDB RAG Pipeline in a background thread
+                    draft_content = await asyncio.to_thread(process_message_batch, message_dicts)
                     
                     # Mark all batch messages as processed
                     for msg in unprocessed:
@@ -119,7 +120,7 @@ async def trigger_ai_process(background_tasks: BackgroundTasks, db: Session = De
         for m in unprocessed
     ]
     
-    draft_content = analyze_messages_and_generate_draft(message_dicts)
+    draft_content = await asyncio.to_thread(process_message_batch, message_dicts)
     
     for msg in unprocessed:
         msg.processed = 1

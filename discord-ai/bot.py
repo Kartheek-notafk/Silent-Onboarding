@@ -7,10 +7,11 @@ from discord.ui import Button, View
 from datetime import datetime
 from dotenv import load_dotenv
 
+import asyncio
 from database import SessionLocal
 from models import Message, Draft, init_db
 from notion import sync_to_notion
-from ai import answer_onboarding_question
+from ai_pipeline import detect_question, detect_gap
 
 load_dotenv()
 
@@ -98,6 +99,11 @@ async def on_message(message: discord.Message):
     if message.author == bot.user:
         return
 
+    # Process commands first
+    await bot.process_commands(message)
+    if message.content.startswith('!'):
+        return
+
     # Check if message is in #onboarding-help channel
     if getattr(message.channel, 'name', '') == ONBOARDING_CHANNEL_NAME:
         db = SessionLocal()
@@ -118,12 +124,16 @@ async def on_message(message: discord.Message):
         finally:
             db.close()
 
-        # If user explicitly asks a question or mentions the bot/ai in onboarding channel
-        if "?" in message.content or bot.user in message.mentions or any(k in message.content.lower() for k in ["how", "help", "setup", "where", "python", "env", "error"]):
-            ai_reply = answer_onboarding_question(message.content)
-            await message.channel.send(ai_reply)
-
-    await bot.process_commands(message)
+        # Use AI Pipeline to determine if this is a genuine question
+        try:
+            is_question = await asyncio.to_thread(detect_question, message.content)
+            if is_question:
+                audit = await asyncio.to_thread(detect_gap, message.content)
+                if not audit.get("has_gap"):
+                    # Already in docs! Reply instantly.
+                    await message.channel.send(f"🤖 **Documentation Assistant:**\n{audit.get('reason')}")
+        except Exception as e:
+            print(f"[AI Pipeline Error] {e}")
 
 async def post_draft_for_approval(draft_id: int, content: str):
     """
@@ -133,7 +143,8 @@ async def post_draft_for_approval(draft_id: int, content: str):
         channel = discord.utils.get(guild.text_channels, name=DOC_APPROVALS_CHANNEL_NAME)
         if channel:
             view = ApprovalView(draft_id=draft_id)
-            msg_text = f"📝 **New AI Documentation Draft #{draft_id}**\n\n{content}"
+            safe_content = content[:1900] + ("..." if len(content) > 1900 else "")
+            msg_text = f"📝 **New AI Documentation Draft #{draft_id}**\n\n{safe_content}"
             await channel.send(content=msg_text, view=view)
             print(f"[Approver] Posted draft #{draft_id} to #{DOC_APPROVALS_CHANNEL_NAME}")
             return True
@@ -272,10 +283,10 @@ async def trigger_ai_command(ctx):
             await ctx.send("ℹ️ No new unprocessed messages found in `#onboarding-help`.")
             return
             
-        from ai import analyze_messages_and_generate_draft
+        from ai_pipeline import process_message_batch
         message_dicts = [{"id": m.id, "user": m.user, "content": m.content, "channel_id": m.channel_id} for m in unprocessed]
         
-        draft_content = analyze_messages_and_generate_draft(message_dicts)
+        draft_content = process_message_batch(message_dicts)
         
         for msg in unprocessed:
             msg.processed = 1
